@@ -5,13 +5,13 @@ import cv2
 import torch
 import tiny_cnn
 
-# 模型路径配置
+# Model path configuration
 FULL_MODEL_PATH = 'results/improved_gesture_recognition_raspberry_pi/improved_gesture_recognition_full.pt'
 QUANT_MODEL_PATH = 'results/improved_gesture_recognition_raspberry_pi/improved_gesture_recognition_quantized.pt'
 
-# 如果检测到量化模型则优先使用
+# Prefer quantized model if available
 if os.path.exists(QUANT_MODEL_PATH):
-    print(f"检测到量化模型，使用：{QUANT_MODEL_PATH}")
+    print(f"Quantized model detected, using: {QUANT_MODEL_PATH}")
     MODEL_PATH = QUANT_MODEL_PATH
 else:
     MODEL_PATH = FULL_MODEL_PATH
@@ -21,7 +21,7 @@ HEIGHT = 256
 WIDTH = 256
 VIDEO_EXTS = ['.mp4', '.avi', '.mov', '.mkv']
 
-# 注册模型类，防止反序列化失败
+# Register model class to prevent deserialization failure
 sys.modules['__main__'].ImprovedGrayMultiChannelTinyVGG = tiny_cnn.ImprovedGrayMultiChannelTinyVGG
 sys.modules['__main__'].ConvReLU = tiny_cnn.ConvReLU
 
@@ -47,7 +47,7 @@ def extract_frames(video_path: str, num_frames: int):
         gray = cv2.equalizeHist(gray)
         frames.append(gray.astype(np.float32) / 255.0)
     cap.release()
-    # 补齐帧
+    # Pad frames if needed
     while len(frames) < num_frames and frames:
         frames.append(frames[-1])
     return np.stack(frames, axis=0)
@@ -69,10 +69,10 @@ def infer(model, input_tensor: torch.Tensor):
 def process_video_file(model, video_path: str):
     frames = extract_frames(video_path, NUM_CHANNELS)
     if frames.size == 0:
-        return f"无法从 {os.path.basename(video_path)} 中提取帧"
+        return f"Failed to extract frames from {os.path.basename(video_path)}"
     inp = preprocess(frames)
     pred, conf = infer(model, inp)
-    return f"{os.path.basename(video_path)} -> Gesture_{pred+1} (置信度: {conf:.4f})"
+    return f"{os.path.basename(video_path)} -> Gesture_{pred+1} (Confidence: {conf:.4f})"
 
 
 def find_video_files(root_path: str):
@@ -86,7 +86,7 @@ def find_video_files(root_path: str):
 
 def main():
     if len(sys.argv) != 2:
-        print(f"用法: python {os.path.basename(__file__)} <视频文件或目录>")
+        print(f"Usage: python {os.path.basename(__file__)} <video file or directory>")
         sys.exit(1)
 
     path = sys.argv[1]
@@ -95,11 +95,11 @@ def main():
     elif os.path.isdir(path):
         video_list = find_video_files(path)
     else:
-        print(f"无效路径或不支持的文件格式: {path}")
+        print(f"Invalid path or unsupported file format: {path}")
         sys.exit(1)
 
     model = load_model(MODEL_PATH)
-    print(f"开始批量推理，共 {len(video_list)} 个视频，使用模型: {MODEL_PATH}")
+    print(f"Starting batch inference on {len(video_list)} video(s) using model: {MODEL_PATH}")
     for v in video_list:
         print(process_video_file(model, v))
 
